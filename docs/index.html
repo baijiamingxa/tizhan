@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f5f5f7">
+  <title>练习台 · 题栈</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="rail">
+    <a class="brand" href="#practice" aria-label="题栈练习台"><span class="app-icon" data-icon="layers"></span>题栈</a>
+    <nav aria-label="主导航"></nav>
+    <section id="bankPanel" aria-labelledby="bankHeading">
+      <div class="bank-heading"><h2 id="bankHeading">我的题库</h2><button id="drawerClose" aria-label="关闭题库侧栏">关闭</button></div>
+      <div id="bankList"></div>
+      <button id="importBank" class="bank-add"><span aria-hidden="true">＋</span>导入题库</button>
+      <div class="bank-tools"><button id="importAnswers" class="bank-tool">导入答案</button><button id="aiBank" class="bank-tool">AI 补全答案</button></div>
+    </section>
+    <small id="saveInfo"><span data-icon="device"></span>练习记录保存在当前浏览器</small>
+  </header>
+  <button id="dismissBanks" aria-label="收起题库侧栏" tabindex="-1"></button>
+  <main>
+    <div class="workspace">
+      <button id="chooseBank" class="course" aria-label="选择题库" aria-expanded="false" aria-controls="bankPanel"><span data-icon="book"></span><span id="currentBank">还没有题库</span><span aria-hidden="true">⌄</span></button>
+      <div id="app"></div>
+    </div>
+  </main>
+  <div id="importDialog" hidden class="import-overlay" role="dialog" aria-modal="true" aria-labelledby="importTitle">
+    <section class="import-sheet">
+      <h2 id="importTitle">导入题库</h2><p id="importHint"></p>
+      <input id="wordFile" hidden type="file" accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <button id="pickWord" class="btn">选择 Word 文档</button>
+      <div id="previewBox" hidden><div id="nameBox"><label for="importName" id="nameLabel">名称</label><input id="importName" maxlength="120"></div><strong id="previewCount"></strong><p id="previewSample"></p></div>
+      <p id="fileError" role="status" aria-live="polite"></p>
+      <div class="sheet-actions"><button class="btn" id="cancelImport">取消</button><button class="btn primary" id="confirmImport" disabled>确认导入</button></div>
+    </section>
+  </div>
+  <div id="aiDialog" hidden class="import-overlay" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+    <section class="import-sheet">
+      <h2 id="aiTitle">用 AI 补全答案</h2><p id="aiHint"></p>
+      <div id="aiFields">
+        <label for="aiBase">接口地址</label><input id="aiBase" maxlength="200" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false">
+        <label for="aiModel">模型</label><input id="aiModel" maxlength="80" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false">
+        <label for="aiKey">API Key</label><input id="aiKey" type="password" maxlength="200" placeholder="sk-…" autocomplete="off">
+        <button type="button" id="aiForget" class="ai-forget">清除本机保存的 Key</button>
+      </div>
+      <p id="aiStatus" role="status" aria-live="polite"></p>
+      <div class="sheet-actions"><button class="btn" id="aiCancel">关闭</button><button class="btn primary" id="aiRun">联网生成</button></div>
+    </section>
+  </div>
+  <div id="deleteDialog" hidden class="import-overlay" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
+    <section class="import-sheet">
+      <h2 id="deleteTitle">删除题库</h2>
+      <p><strong id="deleteName"></strong><span id="deleteHint"></span></p>
+      <div class="sheet-actions"><button class="btn" id="cancelDelete">取消</button><button class="btn danger" id="confirmDelete">删除</button></div>
+    </section>
+  </div>
+  <div id="exportDialog" hidden class="import-overlay" role="dialog" aria-modal="true" aria-labelledby="exportTitle">
+    <section class="import-sheet">
+      <h2 id="exportTitle">导出题库</h2>
+      <p id="exportHint"></p>
+      <div class="sheet-actions"><button class="btn" id="cancelExport">取消</button><button class="btn" id="exportPlain">不带答案</button><button class="btn primary" id="exportAnswers">带答案</button></div>
+    </section>
+  </div>
+  <span id="libraryStatus" role="status" aria-live="polite"></span>
+  <script src="word-reader.js"></script>
+  <script src="word-import.js"></script>
+  <script src="bank-export.js"></script>
+  <script src="library.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
