@@ -5,6 +5,7 @@ const paths={
  target:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.3"/><circle cx="12" cy="12" r=".8"/>',
  terminal:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3m6 0h4"/>',
  layers:'<path d="m3 8 9-5 9 5-9 5zm0 5 9 5 9-5m-18 5 9 5 9-5"/>',
+ refresh:'<path d="M20 11a8 8 0 1 1-2.3-5.6"/><path d="M20 4v6h-6"/>',
  book:'<path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1zm0 0v14"/>',
  wrong:'<rect x="4" y="3" width="15" height="18" rx="2"/><path d="m9 9 5 5m0-5-5 5"/>',
  star:'<path d="M6 20V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v15l-6-4z"/>',

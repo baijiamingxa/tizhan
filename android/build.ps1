@@ -31,7 +31,7 @@ try {
     if (!(Test-Path 'node_modules/.bin/esbuild.cmd')) { Run 'npm.cmd' @('ci','--no-audit','--no-fund') }
     Run 'node' @('node_modules/esbuild/bin/esbuild',(Join-Path $stage 'web.js'),'--target=chrome74',("--outfile=" + (Join-Path $assets 'app.js')))
 
-    foreach ($module in 'word-import.js','bank-export.js','library.js') {
+    foreach ($module in 'word-import.js','bank-export.js','update.js','library.js') {
         Run 'node' @('node_modules/esbuild/bin/esbuild',(Join-Path $WebAssets $module),'--target=chrome74',("--outfile=" + (Join-Path $assets $module)))
     }
 
@@ -69,7 +69,7 @@ try {
     Run $java @('-jar',$signer,'sign','--ks',$store,'--ks-key-alias','tizhan','--ks-pass','env:TIZHAN_SIGN_PASSWORD','--v4-signing-enabled','false','--out',$signed,$aligned)
     Run $java @('-jar',$signer,'verify','--verbose',$signed)
     Run (Join-Path $buildTools 'zipalign.exe') @('-c','4',$signed)
-    $output = Join-Path $PSScriptRoot '题栈-1.5.0.apk'
+    $output = Join-Path $PSScriptRoot '题栈-1.6.0.apk'
     Copy-Item -LiteralPath $signed -Destination $output
     Write-Output $output
 } finally {

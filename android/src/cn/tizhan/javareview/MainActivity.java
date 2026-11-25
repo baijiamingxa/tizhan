@@ -53,6 +53,7 @@ public final class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         web.setWebViewClient(new BundleClient());
         web.addJavascriptInterface(new Saver(), "TizhanSave");
+        web.addJavascriptInterface(new Opener(), "TizhanOpen");
         web.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 finishPick(null);
@@ -122,6 +123,20 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private final class Opener {
+        @JavascriptInterface
+        public void open(final String url) {
+            if (url == null || !(url.startsWith("https://") || url.startsWith("http://"))) return;
+            runOnUiThread(() -> {
+                try {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                } catch (Exception e) {
+                    toast("无法打开链接，请检查是否有可用的浏览器");
+                }
+            });
+        }
+    }
+
     private static boolean isLocal(Uri uri) {
         return "https".equals(uri.getScheme()) && HOST.equals(uri.getAuthority());
     }
@@ -143,6 +158,7 @@ public final class MainActivity extends Activity {
                     case "/word-reader.js":
                     case "/word-import.js":
                     case "/bank-export.js":
+                    case "/update.js":
                     case "/library.js":
                     case "/app.js": mime = "application/javascript"; break;
                     default: return missing();

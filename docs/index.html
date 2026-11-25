@@ -16,6 +16,7 @@
       <div id="bankList"></div>
       <button id="importBank" class="bank-add"><span aria-hidden="true">＋</span>导入题库</button>
       <div class="bank-tools"><button id="importAnswers" class="bank-tool">导入答案</button><button id="aiBank" class="bank-tool">AI 补全答案</button></div>
+      <button id="checkUpdate" class="update-btn"><span data-icon="refresh"></span>检查更新</button>
     </section>
     <small id="saveInfo"><span data-icon="device"></span>练习记录保存在当前浏览器</small>
   </header>
@@ -63,10 +64,19 @@
       <div class="sheet-actions"><button class="btn" id="cancelExport">取消</button><button class="btn" id="exportPlain">不带答案</button><button class="btn primary" id="exportAnswers">带答案</button></div>
     </section>
   </div>
+  <div id="updateDialog" hidden class="import-overlay" role="dialog" aria-modal="true" aria-labelledby="updateTitle">
+    <section class="import-sheet">
+      <h2 id="updateTitle">检查更新</h2>
+      <p id="updateStatus" role="status" aria-live="polite"></p>
+      <div id="updateNotes" hidden></div>
+      <div class="sheet-actions"><button class="btn" id="closeUpdate">关闭</button><button class="btn primary" id="downloadUpdate" hidden>前往下载</button></div>
+    </section>
+  </div>
   <span id="libraryStatus" role="status" aria-live="polite"></span>
   <script src="word-reader.js"></script>
   <script src="word-import.js"></script>
   <script src="bank-export.js"></script>
+  <script src="update.js"></script>
   <script src="library.js"></script>
   <script src="app.js"></script>
 </body>
