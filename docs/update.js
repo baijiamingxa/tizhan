@@ -1,7 +1,7 @@
 const UpdateCheck = (function(){
 'use strict';
 const REPO='baijiamingxa/tizhan';
-const VERSION='1.7.0';
+const VERSION='1.8.0';
 const el=id=>document.getElementById(id);
 let checking=false,downloadUrl='';
 function parse(version){
