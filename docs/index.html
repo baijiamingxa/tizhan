@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f5f5f7">
+  <script>
+    (function(){try{var c=localStorage.getItem('tizhan-theme')||'auto';var d=c==='dark'||(c==='auto'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=d?'dark':'light';var m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute('content',d?'#111114':'#f5f5f7')}catch(e){}})();
+  </script>
   <title>练习台 · 题栈</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -16,6 +19,7 @@
       <div id="bankList"></div>
       <button id="importBank" class="bank-add"><span aria-hidden="true">＋</span>导入题库</button>
       <div class="bank-tools"><button id="importAnswers" class="bank-tool">导入答案</button><button id="aiBank" class="bank-tool">AI 补全答案</button></div>
+      <label class="theme-row"><span data-icon="moon"></span><span>外观</span><select id="themePick" aria-label="外观模式"><option value="auto">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
       <button id="checkUpdate" class="update-btn"><span data-icon="refresh"></span>检查更新</button>
     </section>
     <small id="saveInfo"><span data-icon="device"></span>练习记录保存在当前浏览器</small>

@@ -5,6 +5,7 @@ const paths={
  terminal:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="m7 9 3 3-3 3m6 0h4"/>',
  layers:'<path d="m3 8 9-5 9 5-9 5zm0 5 9 5 9-5m-18 5 9 5 9-5"/>',
  refresh:'<path d="M20 11a8 8 0 1 1-2.3-5.6"/><path d="M20 4v6h-6"/>',
+ moon:'<path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/>',
  book:'<path d="M12 6c-3-2-6-2-9-1v14c3-1 6-1 9 1 3-2 6-2 9-1V5c-3-1-6-1-9 1zm0 0v14"/>',
  wrong:'<rect x="4" y="3" width="15" height="18" rx="2"/><path d="m9 9 5 5m0-5-5 5"/>',
  star:'<path d="M6 20V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v15l-6-4z"/>',
@@ -595,6 +596,29 @@ document.addEventListener('keydown',e=>{
  if(e.shiftKey&&document.activeElement===nodes[0]){nodes[nodes.length-1].focus();e.preventDefault()}
  else if(!e.shiftKey&&document.activeElement===nodes[nodes.length-1]){nodes[0].focus();e.preventDefault()}
 });
+const THEME_KEY='tizhan-theme';
+function themeChoice(){try{return localStorage.getItem(THEME_KEY)||'auto'}catch{return 'auto'}}
+function isDarkTheme(choice){
+ return choice==='dark'||(choice==='auto'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+function applyTheme(){
+ const choice=themeChoice(),dark=isDarkTheme(choice);
+ document.documentElement.dataset.theme=dark?'dark':'light';
+ const meta=document.querySelector('meta[name="theme-color"]');
+ if(meta)meta.setAttribute('content',dark?'#111114':'#f5f5f7');
+ const pick=document.getElementById('themePick');
+ if(pick)pick.value=choice;
+ try{if(window.TizhanTheme&&typeof window.TizhanTheme.set==='function')window.TizhanTheme.set(dark)}catch{}
+}
+const themePick=document.getElementById('themePick');
+if(themePick)themePick.onchange=e=>{try{localStorage.setItem(THEME_KEY,e.target.value)}catch{};applyTheme()};
+const scheme=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
+if(scheme){
+ const onScheme=()=>{if(themeChoice()==='auto')applyTheme()};
+ if(scheme.addEventListener)scheme.addEventListener('change',onScheme);
+ else if(scheme.addListener)scheme.addListener(onScheme);
+}
+applyTheme();
 document.querySelectorAll('[data-icon]').forEach(n=>n.innerHTML=icon(n.dataset.icon));
 window.addEventListener('hashchange',enter);
 Library.init(activateBank);
