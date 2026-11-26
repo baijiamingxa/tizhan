@@ -42,9 +42,10 @@
       <h2 id="aiTitle">用 AI 补全答案</h2><p id="aiHint"></p>
       <div id="aiFields">
         <label for="aiBase">接口地址</label><input id="aiBase" maxlength="200" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false">
-        <label for="aiModel">模型</label><input id="aiModel" maxlength="80" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false">
+        <label for="aiModel">模型</label><input id="aiModel" maxlength="80" placeholder="gpt-4o-mini" autocomplete="off" spellcheck="false" list="aiModels">
+        <datalist id="aiModels"></datalist>
         <label for="aiKey">API Key</label><input id="aiKey" type="password" maxlength="200" placeholder="sk-…" autocomplete="off">
-        <button type="button" id="aiForget" class="ai-forget">清除本机保存的 Key</button>
+        <div class="ai-tools"><button type="button" id="aiTest" class="ai-mini">测试连接</button><button type="button" id="aiModels" class="ai-mini">获取模型</button><button type="button" id="aiForget" class="ai-forget">清除 Key</button></div>
       </div>
       <p id="aiStatus" role="status" aria-live="polite"></p>
       <div class="sheet-actions"><button class="btn" id="aiCancel">关闭</button><button class="btn primary" id="aiRun">联网生成</button></div>

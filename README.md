@@ -41,8 +41,9 @@ A、1 B、2 C、4 D、8
 ## AI 补全答案
 
 1. 选择题库后点击侧栏「AI 补全答案」
-2. 填写接口地址（默认 `https://api.openai.com/v1`）、模型和 **你自己的** API Key
-3. 点击「联网生成」，只处理缺少答案的题目
+2. 填写接口地址（默认 `https://api.openai.com/v1`）和 **你自己的** API Key
+3. 可先点「测试连接」确认地址与 Key 可用，点「获取模型」拉取接口的模型列表后从下拉框选择
+4. 点击「联网生成」，只处理缺少答案的题目；生成的每道题都带详细解答，简答与编程题还会附评分要点
 
 每位用户在自己的设备上填写自己的 Key，Key 与接口配置只保存在本机浏览器，不会上传；可随时点「清除本机保存的 Key」。接口需兼容 OpenAI 的 `/chat/completions`；Android 端仅允许 https 接口。
 
@@ -69,7 +70,7 @@ cd android
 ./build.ps1
 ```
 
-脚本会用 esbuild 打包 `docs` 下的前端资源，与 Java 壳一起生成并签名 `题栈-1.6.0.apk`。首次运行会生成签名密钥并保存在本机 `%LOCALAPPDATA%\Tizhan\Signing`。
+脚本会用 esbuild 打包 `docs` 下的前端资源，与 Java 壳一起生成并签名 `题栈-1.7.0.apk`。首次运行会生成签名密钥并保存在本机 `%LOCALAPPDATA%\Tizhan\Signing`。
 
 ## 目录结构
 

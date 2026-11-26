@@ -218,7 +218,7 @@ function openAI(){
  el('aiBase').value=cfg.base||'https://api.openai.com/v1';
  el('aiModel').value=cfg.model||'gpt-4o-mini';
  el('aiKey').value=cfg.key||'';
- el('aiHint').textContent=`「${active.name}」有 ${missing} 道题缺少可判分的答案。每位用户在自己的设备上填写自己的 Key，接口与 Key 只保存在本机浏览器。`;
+ el('aiHint').textContent=`「${active.name}」有 ${missing} 道题缺少可判分的答案。写入前可先「测试连接」或「获取模型」；生成的答案会附带详细讲解。`;
  el('aiStatus').textContent=missing?'':'这个题库的题目都已经有答案了。';
  el('aiRun').disabled=!missing;
  el('aiDialog').hidden=false;el('aiBase').focus();
@@ -235,7 +235,7 @@ function aiMessage(q){
  return text;
 }
 async function askAI(base,model,key,batch){
- const system='你是 Java 题库的答题助手。只输出一个 JSON 对象，键是题号，值是答案：单选题填单个字母；多选题按字母顺序连写（如 "AC"）；判断题填 A（正确）或 B（错误）；填空题按空的顺序用分号分隔；简答题和编程题给出简短的参考答案。不要输出解释或代码块标记。';
+ const system='你是 Java 题库的答题助手。只输出一个 JSON 对象，键是题号，值是对象：{"answer":"答案","explanation":"详细解答","rubric":"评分要点"}。answer 规则：单选题填单个字母；多选题按字母顺序连写（如 "AC"）；判断题填 A（正确）或 B（错误）；填空题按空的顺序用分号分隔；简答题和编程题给出完整参考答案。explanation 用中文写清楚解题思路：选择题说明正确选项为什么对、其他选项错在哪；判断题说明判断依据；填空题逐空解释；简答与编程题给出关键步骤和原理，必要时给代码。rubric 只对简答和编程题给出评分要点，其他题省略。不要输出代码块标记或 JSON 以外的文字。';
  const user=batch.map(item=>item.n+'.\n'+aiMessage(item.q)).join('\n\n');
  let res;
  try{
@@ -254,6 +254,66 @@ async function askAI(base,model,key,batch){
  if(start<0||end<=start)throw Error('AI 没有返回可解析的答案。');
  return JSON.parse(text.slice(start,end+1));
 }
+function modelIds(data){
+ const list=Array.isArray(data?.data)?data.data:Array.isArray(data?.models)?data.models:[];
+ return list.map(item=>typeof item==='string'?item:item?.id||item?.name).filter(Boolean);
+}
+function showModels(ids){
+ el('aiModels').innerHTML=ids.map(id=>`<option value="${esc(id)}"></option>`).join('');
+ if(!el('aiModel').value.trim()&&ids[0])el('aiModel').value=ids[0];
+}
+function apiError(error,status){
+ if(status===401||status===403)return 'API Key 无效或没有权限';
+ if(status===404)return '接口地址不正确，通常需要以 /v1 结尾';
+ if(status)return `接口返回 HTTP ${status}`;
+ return error?.message==='Failed to fetch'||error instanceof TypeError?'无法访问接口，请检查网络、地址或设备联网权限':error?.message||'请求失败';
+}
+async function testConnection(){
+ if(busy)return;
+ const base=el('aiBase').value.trim().replace(/\/+$/,'');
+ const key=el('aiKey').value.trim();
+ if(!/^https?:\/\//i.test(base)||!key){el('aiStatus').textContent='请先填写接口地址和 API Key。';return}
+ busy=true;el('aiTest').disabled=true;el('aiModels').disabled=true;el('aiRun').disabled=true;
+ const started=performance.now();
+ try{
+  let res;
+  try{res=await fetch(base+'/models',{headers:{authorization:'Bearer '+key}})}
+  catch{throw Error('无法连接接口，请检查网络、接口地址或设备联网权限')}
+  if(res.ok){
+   const ids=modelIds(await res.json());
+   if(ids.length)showModels(ids);
+   el('aiStatus').textContent=`连接正常：耗时 ${Math.round(performance.now()-started)} ms，接口提供 ${ids.length} 个模型。`;
+   return;
+  }
+  if(res.status===401||res.status===403)throw Error('API Key 无效或没有权限');
+  const model=el('aiModel').value.trim()||'gpt-4o-mini';
+  let ping;
+  try{
+   ping=await fetch(base+'/chat/completions',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+key},body:JSON.stringify({model,temperature:0,max_tokens:8,messages:[{role:'user',content:'ping'}]})});
+  }catch{throw Error('无法连接接口，请检查网络、接口地址或设备联网权限')}
+  if(!ping.ok)throw Error(apiError(null,ping.status));
+  el('aiStatus').textContent=`连接正常：耗时 ${Math.round(performance.now()-started)} ms，模型 ${model} 可调用。`;
+ }catch(e){el('aiStatus').textContent='连接失败：'+apiError(e,e.status)}
+ finally{busy=false;el('aiTest').disabled=false;el('aiModels').disabled=false;el('aiRun').disabled=!missingAnswers()}
+}
+async function listModels(){
+ if(busy)return;
+ const base=el('aiBase').value.trim().replace(/\/+$/,'');
+ const key=el('aiKey').value.trim();
+ if(!/^https?:\/\//i.test(base)||!key){el('aiStatus').textContent='请先填写接口地址和 API Key。';return}
+ busy=true;el('aiTest').disabled=true;el('aiModels').disabled=true;el('aiRun').disabled=true;
+ try{
+  let res;
+  try{res=await fetch(base+'/models',{headers:{authorization:'Bearer '+key}})}
+  catch{throw Error('无法连接接口，请检查网络、接口地址或设备联网权限')}
+  if(!res.ok)throw Error(apiError(null,res.status));
+  const ids=modelIds(await res.json());
+  if(!ids.length)throw Error('接口没有返回模型列表');
+  showModels(ids);
+  el('aiStatus').textContent=`已获取 ${ids.length} 个模型，点击模型输入框可下拉选择。`;
+ }catch(e){el('aiStatus').textContent='获取模型失败：'+apiError(e,e.status)}
+ finally{busy=false;el('aiTest').disabled=false;el('aiModels').disabled=false;el('aiRun').disabled=!missingAnswers()}
+}
 async function runAI(){
  if(!active||busy)return;
  const base=el('aiBase').value.trim().replace(/\/+$/,'');
@@ -263,7 +323,7 @@ async function runAI(){
  try{localStorage.setItem('tizhan-ai-config',JSON.stringify({base,model,key}))}catch{}
  const targets=active.questions.map((q,i)=>({q,n:i+1})).filter(item=>!item.q.answer||item.q.selfReview);
  if(!targets.length){el('aiStatus').textContent='没有需要生成的题目。';return}
- busy=true;el('aiRun').disabled=true;el('aiCancel').disabled=true;
+ busy=true;el('aiRun').disabled=true;el('aiCancel').disabled=true;el('aiTest').disabled=true;el('aiModels').disabled=true;
  [el('aiBase'),el('aiModel'),el('aiKey')].forEach(n=>{n.disabled=true});
  let applied=0,error='';
  try{
@@ -271,20 +331,30 @@ async function runAI(){
    const batch=targets.slice(start,start+6);
    el('aiStatus').textContent=`正在生成第 ${start+1}–${Math.min(start+batch.length,targets.length)} 题，共 ${targets.length} 道…`;
    const answers=await askAI(base,model,key,batch);
-   batch.forEach(item=>{const value=answers[item.n];if(value!=null&&WordImport.applyAnswer(item.q,value))applied++});
+   batch.forEach(item=>{
+    const raw=answers[item.n];
+    if(raw==null)return;
+    const value=typeof raw==='object'?raw.answer??raw.result??raw.value:raw;
+    const explanation=typeof raw==='object'?((raw.explanation??raw.analysis??raw.reason)||''):'';
+    const rubric=typeof raw==='object'?((raw.rubric??raw.points??raw.scoring)||''):'';
+    if(value==null||!WordImport.applyAnswer(item.q,String(value)))return;
+    applied++;
+    if(explanation)item.q.explanation=String(explanation).trim();
+    if(rubric&&['short','code'].includes(item.q.type))item.q.rubric=String(rubric).trim();
+   });
   }
   el('aiStatus').textContent='正在保存…';
   await persistActive();await reloadActive();
  }catch(e){error=e.message||'请求失败'}
  finally{
-  busy=false;el('aiRun').disabled=false;el('aiCancel').disabled=false;
+  busy=false;el('aiRun').disabled=false;el('aiCancel').disabled=false;el('aiTest').disabled=false;el('aiModels').disabled=false;
   [el('aiBase'),el('aiModel'),el('aiKey')].forEach(n=>{n.disabled=false});
  }
  if(error){
   if(applied){try{await persistActive();await reloadActive()}catch{}}
   el('aiStatus').textContent=`生成中断：${error}${applied?`（已保存 ${applied} 道）`:''}`;
  }else{
-  el('aiStatus').textContent=`已为 ${applied} 道题写入 AI 答案${applied<targets.length?`，${targets.length-applied} 道未能识别`:''}。`;
+  el('aiStatus').textContent=`已为 ${applied} 道题写入答案与讲解${applied<targets.length?`，${targets.length-applied} 道未能识别`:''}。`;
  }
 }
 async function init(callback){
@@ -310,6 +380,7 @@ async function init(callback){
  el('cancelDelete').onclick=closeDelete;el('confirmDelete').onclick=remove;
  el('deleteDialog').onclick=e=>{if(e.target===el('deleteDialog'))closeDelete()};
  el('aiCancel').onclick=closeAI;el('aiRun').onclick=runAI;
+ el('aiTest').onclick=testConnection;el('aiModels').onclick=listModels;
  el('aiDialog').onclick=e=>{if(e.target===el('aiDialog'))closeAI()};
  el('aiKey').onkeydown=e=>{if(e.key==='Enter')runAI()};
  el('aiForget').onclick=()=>{

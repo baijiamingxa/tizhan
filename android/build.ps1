@@ -69,7 +69,7 @@ try {
     Run $java @('-jar',$signer,'sign','--ks',$store,'--ks-key-alias','tizhan','--ks-pass','env:TIZHAN_SIGN_PASSWORD','--v4-signing-enabled','false','--out',$signed,$aligned)
     Run $java @('-jar',$signer,'verify','--verbose',$signed)
     Run (Join-Path $buildTools 'zipalign.exe') @('-c','4',$signed)
-    $output = Join-Path $PSScriptRoot '题栈-1.6.0.apk'
+    $output = Join-Path $PSScriptRoot '题栈-1.7.0.apk'
     Copy-Item -LiteralPath $signed -Destination $output
     Write-Output $output
 } finally {
