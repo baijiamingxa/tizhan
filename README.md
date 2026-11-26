@@ -1,6 +1,6 @@
-# 题栈 · Java 刷题
+# 题栈 · 刷题应用
 
-一个离线优先的 Java 刷题应用：网页版与 Android 版共用同一套前端，题库和练习记录都保存在本机，不上传服务器。
+一个离线优先的刷题应用：网页版与 Android 版共用同一套前端，题库和练习记录都保存在本机，不上传服务器。
 
 - **网页版**：<https://baijiamingxa.github.io/tizhan/>
 - **Android 版**：[下载 APK](https://github.com/baijiamingxa/tizhan/releases/latest)（Android 9 及以上）
