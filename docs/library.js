@@ -346,7 +346,7 @@ async function explain(q){
  if(q.explanation)user+=`\n已有解析（可参考并补充）：${q.explanation}`;
  if(q.rubric)user+=`\n评分要点：${q.rubric}`;
  if(q.pitfall)user+=`\n易错点：${q.pitfall}`;
- const system='你是耐心的刷题辅导老师。请用中文讲清楚这道题为什么是这个答案，面向正在备考的学生。要求：先给出正确答案；再解释正确选项或答案的依据和原理；如果有多项选择，逐一说明其他选项错在哪里；最后指出易错点和记忆方法。不要只重复答案，不要输出 Markdown 代码块标记。结构清晰，分成几段。';
+ const system='你是耐心的刷题辅导老师。请用中文讲清楚这道题为什么是这个答案，面向正在备考的学生。要求：先给出正确答案；再解释正确选项或答案的依据和原理；如果有多项选择，逐一说明其他选项错在哪里；最后指出易错点和记忆方法。不要只重复答案，不要输出 Markdown 代码块标记，也不要用 **、## 之类的 Markdown 符号。结构清晰，分成几段。';
  let res;
  try{
   res=await fetch(base+'/chat/completions',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+key},body:JSON.stringify({model,temperature:0.3,messages:[{role:'system',content:system},{role:'user',content:user}]})});

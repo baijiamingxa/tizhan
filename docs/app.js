@@ -443,7 +443,7 @@ async function runExplain(){
    config.hidden=false;
   }else{
    status.textContent='讲解失败：'+(e.message||'请求失败');
-   retry.hidden=false;
+   retry.hidden=false;config.hidden=false;
   }
  }finally{explainBusy=false}
 }
