@@ -11,6 +11,7 @@ const paths={
  chart:'<path d="M4 20h16M6 16v-5m6 5V5m6 11V8"/>',
  grid:'<rect x="3" y="3" width="7" height="7" rx="1.3"/><rect x="14" y="3" width="7" height="7" rx="1.3"/><rect x="3" y="14" width="7" height="7" rx="1.3"/><rect x="14" y="14" width="7" height="7" rx="1.3"/>',
  clock:'<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.2 2"/>',
+ spark:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 16v3m-1.5-1.5h3"/>',
  search:'<circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/>',
  check:'<path d="m4 12 5 5L20 6"/>',cross:'<path d="m6 6 12 12M18 6 6 18"/>'
 };
@@ -24,6 +25,7 @@ let key,state;
 let tab,pool=[],index=0,page=0,summary=false;
 let mode='normal',recite={},query='',searchHits=[];
 let exam=null,examError='',examTimer=null,wrongFresh={};
+let explainTarget=null,explainBusy=false,explainCache={},explainOpener=null;
 const groupSize=20;
 function activateBank(bank){
  clearExamTimer();
@@ -36,7 +38,7 @@ function activateBank(bank){
  if(key){try{Object.assign(state,JSON.parse(localStorage.getItem(key))||{})}catch{}}
  if(!Array.isArray(state.log))state.log=[];
  if(!state.streak||typeof state.streak!=='object')state.streak={};
- mode='normal';recite={};query='';searchHits=[];wrongFresh={};
+ mode='normal';recite={};query='';searchHits=[];wrongFresh={};explainCache={};explainTarget=null;
  enter();
 }
 function persist(){if(!key)return;try{localStorage.setItem(key,JSON.stringify(state))}catch{document.querySelector('#saveInfo').textContent='浏览器存储不可用，本次进度仅在当前页面保留'}}
@@ -173,13 +175,13 @@ function card(){
  const q=pool[index],r=currentResult(q),d=state.drafts[q.id],saved=Boolean(state.saved[q.id]);
  const mastered=tab==='wrong'&&r?.ok===true;
  const streak=tab==='wrong'?`<span class="chip">连续 ${state.streak[q.id]||0}/2</span>`:'';
- return `<section class="card">${heading}<div class="inside"><div class="qmeta"><div class="chips"><span class="qid">第 <b>${String(index+1).padStart(2,'0')}</b> 题</span><span class="chip">${kinds[q.type]}</span>${streak}${q.level?`<span class="chip level ${{中:'mid',难:'hard'}[q.level]||''}">${{易:'基础',中:'中等',难:'较难'}[q.level]}</span>`:''}</div><button class="bookmark ${saved?'on':''}" data-action="save" aria-pressed="${saved}">${icon('star')}${saved?'已收藏':'收藏'}</button></div><h3 class="question">${esc(q.title)}</h3>${q.requirements?`<p class="requirements">${esc(q.requirements.join('\n'))}</p>`:''}${answerArea(q,r,d)}${feedback(q,r)}</div><div class="actions"><div class="control"><button class="btn" data-jump="${index-1}" ${!index?'disabled':''}>上一题</button><button class="btn" data-action="next">${index===pool.length-1?'查看小结':'下一题'}</button></div>${mastered?'<span class="notice">已移出错题本</span>':r?`<button class="btn" data-action="retry">${tab==='wrong'?'再练一次':'重新作答'}</button>`:(q.type==='choice'||q.type==='judge')?'<span class="notice">点选即提交</span>':`<button id="submit" class="btn primary" data-action="submit" ${ready(q,d)?'':'disabled'}>${['short','code'].includes(q.type)?(q.answer?'查看参考答案':'完成并自评'):'提交答案'}</button>`}</div></section>`;
+ return `<section class="card">${heading}<div class="inside"><div class="qmeta"><div class="chips"><span class="qid">第 <b>${String(index+1).padStart(2,'0')}</b> 题</span><span class="chip">${kinds[q.type]}</span>${streak}${q.level?`<span class="chip level ${{中:'mid',难:'hard'}[q.level]||''}">${{易:'基础',中:'中等',难:'较难'}[q.level]}</span>`:''}</div><div class="qmeta-tools"><button class="bookmark" data-action="explain">${icon('spark')}AI 讲题</button><button class="bookmark ${saved?'on':''}" data-action="save" aria-pressed="${saved}">${icon('star')}${saved?'已收藏':'收藏'}</button></div></div><h3 class="question">${esc(q.title)}</h3>${q.requirements?`<p class="requirements">${esc(q.requirements.join('\n'))}</p>`:''}${answerArea(q,r,d)}${feedback(q,r)}</div><div class="actions"><div class="control"><button class="btn" data-jump="${index-1}" ${!index?'disabled':''}>上一题</button><button class="btn" data-action="next">${index===pool.length-1?'查看小结':'下一题'}</button></div>${mastered?'<span class="notice">已移出错题本</span>':r?`<button class="btn" data-action="retry">${tab==='wrong'?'再练一次':'重新作答'}</button>`:(q.type==='choice'||q.type==='judge')?'<span class="notice">点选即提交</span>':`<button id="submit" class="btn primary" data-action="submit" ${ready(q,d)?'':'disabled'}>${['short','code'].includes(q.type)?(q.answer?'查看参考答案':'完成并自评'):'提交答案'}</button>`}</div></section>`;
 }
 function reciteCard(){
  const heading=`<div class="cardhead">${head('背题模式','book')}${filterMenu()}</div>`;
  if(!pool.length)return emptyCard(heading,'book',state.filter.practice&&state.filter.practice!=='all'?'该题型暂无题目':'题库里还没有题目','导入题库后就可以在这里先背答案，再翻转自测。');
  const q=pool[index],phase=recite[q.id]==='test'?'test':'memorize';
- const meta=`<div class="qmeta"><div class="chips"><span class="qid">第 <b>${String(index+1).padStart(2,'0')}</b> 题</span><span class="chip">${kinds[q.type]}</span>${q.topic?`<span class="chip">${esc(q.topic)}</span>`:''}</div><span class="chip recite-hint">${phase==='test'?'自测中':'先记答案'}</span></div>`;
+ const meta=`<div class="qmeta"><div class="chips"><span class="qid">第 <b>${String(index+1).padStart(2,'0')}</b> 题</span><span class="chip">${kinds[q.type]}</span>${q.topic?`<span class="chip">${esc(q.topic)}</span>`:''}</div><div class="qmeta-tools"><button class="bookmark" data-action="explain">${icon('spark')}AI 讲题</button><span class="chip recite-hint">${phase==='test'?'自测中':'先记答案'}</span></div></div>`;
  if(phase==='memorize'){
   const options=q.options?`<div class="options">${q.options.map((s,i)=>{const l='ABCDEFGH'[i],good=!q.selfReview&&q.answer.includes(l);return `<div class="option ${good?'good':''}"><span class="letter">${l}</span><span>${esc(s)}</span>${good?icon('check'):''}</div>`}).join('')}</div>`:'';
   return `<section class="card">${heading}<div class="inside">${meta}<h3 class="question">${esc(q.title)}</h3>${q.requirements?`<p class="requirements">${esc(q.requirements.join('\n'))}</p>`:''}${options}<section class="response memorize" aria-label="参考答案"><strong>参考答案</strong>${q.type==='code'?`<pre>${esc(q.answer)}</pre>`:`<p>${esc(answerLabel(q))}</p>`}${q.explanation?`<p>${esc(q.explanation)}</p>`:''}${q.rubric?`<p>评分要点：${esc(q.rubric)}</p>`:''}${q.pitfall?`<p>易错点：${esc(q.pitfall)}</p>`:''}${q.topic?`<p class="subtle">知识点 · ${esc(q.topic)}</p>`:''}</section></div><div class="actions"><div class="control"><button class="btn" data-jump="${index-1}" ${!index?'disabled':''}>上一题</button><button class="btn" data-action="next">${index===pool.length-1?'查看小结':'下一题'}</button></div><button class="btn primary" data-action="flip">翻转自测</button></div></section>`;
@@ -372,7 +374,7 @@ function submitExam(){
 function reviewItem(q,i){
  const g=exam.grades?.[q.id];
  const tag=g===true?'答对':g===false?'答错':'待自评';
- return `<article class="review-item ${g===true?'ok':g===false?'no':''}"><div class="review-head"><span class="review-no">第 ${i+1} 题</span><span class="chip">${kinds[q.type]}</span><span class="review-tag">${tag}</span></div><h4>${esc(q.title)}</h4><p class="review-line"><b>你的答案</b>${esc(examAnswerText(q))}</p><p class="review-line"><b>正确答案</b>${esc(answerLabel(q))}</p>${q.explanation?`<p class="review-exp">${esc(q.explanation)}</p>`:''}${q.rubric?`<p class="review-line"><b>评分要点</b>${esc(q.rubric)}</p>`:''}${q.topic?`<p class="subtle">知识点 · ${esc(q.topic)}</p>`:''}</article>`;
+ return `<article class="review-item ${g===true?'ok':g===false?'no':''}"><div class="review-head"><span class="review-no">第 ${i+1} 题</span><span class="chip">${kinds[q.type]}</span><span class="review-tag">${tag}</span></div><h4>${esc(q.title)}</h4><p class="review-line"><b>你的答案</b>${esc(examAnswerText(q))}</p><p class="review-line"><b>正确答案</b>${esc(answerLabel(q))}</p>${q.explanation?`<p class="review-exp">${esc(q.explanation)}</p>`:''}${q.rubric?`<p class="review-line"><b>评分要点</b>${esc(q.rubric)}</p>`:''}${q.topic?`<p class="subtle">知识点 · ${esc(q.topic)}</p>`:''}<button class="btn review-explain" data-explain="${esc(q.id)}">${icon('spark')}AI 讲题</button></article>`;
 }
 function examResult(){
  const auto=exam.ids.filter(id=>typeof exam.grades[id]==='boolean');
@@ -407,6 +409,55 @@ function startExamTimer(){
  tick();
  examTimer=setInterval(tick,1000);
 }
+function openExplain(q,force){
+ if(!q)return;
+ explainTarget=q;
+ explainOpener=document.activeElement;
+ const dialog=document.getElementById('explainDialog');
+ document.getElementById('explainQ').textContent=`第 ${questionNumber(q)} 题 · ${kinds[q.type]||''}\n${q.title}`;
+ const status=document.getElementById('explainStatus'),body=document.getElementById('explainBody');
+ const retry=document.getElementById('explainRetry'),config=document.getElementById('explainConfig');
+ status.textContent='';body.textContent='';body.hidden=true;retry.hidden=true;config.hidden=true;
+ dialog.hidden=false;
+ document.getElementById('explainClose').focus();
+ const cached=explainCache[q.id];
+ if(!force&&cached){body.textContent=cached;body.hidden=false;return}
+ runExplain();
+}
+async function runExplain(){
+ const q=explainTarget;
+ if(!q||explainBusy)return;
+ explainBusy=true;
+ const status=document.getElementById('explainStatus'),body=document.getElementById('explainBody');
+ const retry=document.getElementById('explainRetry'),config=document.getElementById('explainConfig');
+ status.textContent='AI 正在讲解，请稍候…';body.textContent='';body.hidden=true;retry.hidden=true;config.hidden=true;
+ try{
+  const text=await Library.explain(q);
+  if(explainTarget!==q)return;
+  explainCache[q.id]=text;
+  status.textContent='';body.textContent=text;body.hidden=false;
+ }catch(e){
+  if(explainTarget!==q)return;
+  if(e.message==='NO_CONFIG'){
+   status.textContent='还没有配置 AI 接口和 Key。配置一次后，AI 讲题会自动复用。';
+   config.hidden=false;
+  }else{
+   status.textContent='讲解失败：'+(e.message||'请求失败');
+   retry.hidden=false;
+  }
+ }finally{explainBusy=false}
+}
+function closeExplain(){
+ const dialog=document.getElementById('explainDialog');
+ if(dialog.hidden)return;
+ explainTarget=null;dialog.hidden=true;
+ if(explainOpener?.isConnected&&explainOpener.offsetParent)explainOpener.focus();
+}
+window.TizhanDismiss=()=>{
+ const dialog=document.getElementById('explainDialog');
+ if(!dialog.hidden){closeExplain();return true}
+ return false;
+};
 function render(){
  document.querySelector('nav').innerHTML=Object.entries(tabs).map(([k,[name,ic]])=>`<a href="#${k}" ${k===tab?'class="active" aria-current="page"':''}>${icon(ic)}${name}</a>`).join('');
  if(!hasBank){
@@ -469,6 +520,7 @@ app.addEventListener('click',e=>{
   if(data.action==='exam-start'){startExam();return}
   if(!exam)return;
   if(exam.submitted){
+   if('explain' in data){const target=questions.find(item=>String(item.id)===String(data.explain));if(target)openExplain(target);return}
    if(data.action==='exam-restart'){exam=null;examError='';render();window.scrollTo(0,0)}
    return;
   }
@@ -492,6 +544,7 @@ app.addEventListener('click',e=>{
  if('jump' in data){move(Number(data.jump));return}
  if('page' in data){page+=Number(data.page);render();return}
  if(!q)return;
+ if(data.action==='explain'){openExplain(q);return}
  if('choice' in data){
   if(q.type==='multi'){
    const selected=new Set(state.drafts[q.id]||'');
@@ -527,6 +580,20 @@ app.addEventListener('click',e=>{
  default:return;
  }
  persist();render();
+});
+const explainDialog=document.getElementById('explainDialog');
+document.getElementById('explainClose').onclick=closeExplain;
+document.getElementById('explainRetry').onclick=runExplain;
+document.getElementById('explainConfig').onclick=()=>{closeExplain();Library.openAI()};
+explainDialog.onclick=e=>{if(e.target===explainDialog)closeExplain()};
+document.addEventListener('keydown',e=>{
+ if(explainDialog.hidden)return;
+ if(e.key==='Escape'){closeExplain();return}
+ if(e.key!=='Tab')return;
+ const nodes=Array.from(explainDialog.querySelectorAll('button:not(:disabled)')).filter(n=>n.offsetParent!==null);
+ if(!nodes.length)return;
+ if(e.shiftKey&&document.activeElement===nodes[0]){nodes[nodes.length-1].focus();e.preventDefault()}
+ else if(!e.shiftKey&&document.activeElement===nodes[nodes.length-1]){nodes[0].focus();e.preventDefault()}
 });
 document.querySelectorAll('[data-icon]').forEach(n=>n.innerHTML=icon(n.dataset.icon));
 window.addEventListener('hashchange',enter);

@@ -218,7 +218,7 @@ function openAI(){
  el('aiBase').value=cfg.base||'https://api.openai.com/v1';
  el('aiModel').value=cfg.model||'gpt-4o-mini';
  el('aiKey').value=cfg.key||'';
- el('aiHint').textContent=`「${active.name}」有 ${missing} 道题缺少可判分的答案。写入前可先「测试连接」或「获取模型」；生成的答案会附带详细讲解。`;
+ el('aiHint').textContent=`「${active.name}」有 ${missing} 道题缺少可判分的答案。写入前可先「测试连接」或「获取模型」；这里的配置也会用于「AI 讲题」。生成的答案会附带详细讲解。`;
  el('aiStatus').textContent=missing?'':'这个题库的题目都已经有答案了。';
  el('aiRun').disabled=!missing;
  el('aiDialog').hidden=false;el('aiBase').focus();
@@ -314,8 +314,50 @@ async function listModels(){
  }catch(e){el('aiStatus').textContent='获取模型失败：'+apiError(e,e.status)}
  finally{busy=false;el('aiTest').disabled=false;el('aiModels').disabled=false;el('aiRun').disabled=!missingAnswers()}
 }
-async function runAI(){
- if(!active||busy)return;
+function answerText(q){
+ if(!q.answer)return '';
+ if(q.type==='fill'&&Array.isArray(q.blanks)&&q.blanks.length)return q.blanks.join('；');
+ if(q.type==='judge')return (q.options&&q.options['ABCDEFGH'.indexOf(q.answer)])||q.answer;
+ if(q.options&&(q.type==='choice'||q.type==='multi'))return [...q.answer].map(l=>q.options['ABCDEFGH'.indexOf(l)]?`${l}. ${q.options['ABCDEFGH'.indexOf(l)]}`:l).join('；');
+ return q.answer;
+}
+function hasConfig(){
+ const cfg=aiConfig();
+ return Boolean(String(cfg.base||'').trim()&&String(cfg.key||'').trim());
+}
+function saveConfig(){
+ const base=el('aiBase').value.trim().replace(/\/+$/,''),model=el('aiModel').value.trim(),key=el('aiKey').value.trim();
+ if(!/^https?:\/\//i.test(base)||!model||!key){el('aiStatus').textContent='请先填写接口地址、模型和 API Key。';return}
+ try{localStorage.setItem('tizhan-ai-config',JSON.stringify({base,model,key}))}catch{el('aiStatus').textContent='浏览器存储不可用，无法保存配置。';return}
+ el('aiStatus').textContent='配置已保存，之后「AI 讲题」会直接复用。';
+}
+async function explain(q){
+ if(!q)throw Error('没有选中题目');
+ const cfg=aiConfig();
+ const base=String(cfg.base||'').trim().replace(/\/+$/,'');
+ const key=String(cfg.key||'').trim();
+ const model=String(cfg.model||'').trim()||'gpt-4o-mini';
+ if(!/^https?:\/\//i.test(base)||!key)throw Error('NO_CONFIG');
+ const labels={choice:'单选题',multi:'多选题',judge:'判断题',fill:'填空题',short:'简答题',code:'编程题'};
+ let user=`${labels[q.type]||'题目'}：${q.title}`;
+ if(q.options&&q.options.length)user+='\n选项：\n'+q.options.map((o,i)=>'ABCDEFGH'[i]+'. '+o).join('\n');
+ const answer=answerText(q);
+ if(answer)user+=`\n参考答案：${answer}`;
+ if(q.explanation)user+=`\n已有解析（可参考并补充）：${q.explanation}`;
+ if(q.rubric)user+=`\n评分要点：${q.rubric}`;
+ if(q.pitfall)user+=`\n易错点：${q.pitfall}`;
+ const system='你是耐心的刷题辅导老师。请用中文讲清楚这道题为什么是这个答案，面向正在备考的学生。要求：先给出正确答案；再解释正确选项或答案的依据和原理；如果有多项选择，逐一说明其他选项错在哪里；最后指出易错点和记忆方法。不要只重复答案，不要输出 Markdown 代码块标记。结构清晰，分成几段。';
+ let res;
+ try{
+  res=await fetch(base+'/chat/completions',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+key},body:JSON.stringify({model,temperature:0.3,messages:[{role:'system',content:system},{role:'user',content:user}]})});
+ }catch{throw Error('无法连接接口，请检查网络、接口地址或设备联网权限')}
+ if(!res.ok)throw Error(apiError(null,res.status));
+ const data=await res.json();
+ const text=data?.choices?.[0]?.message?.content||'';
+ if(!String(text).trim())throw Error('AI 没有返回讲解内容');
+ return String(text).trim();
+}
+async function runAI(){ if(!active||busy)return;
  const base=el('aiBase').value.trim().replace(/\/+$/,'');
  const model=el('aiModel').value.trim();
  const key=el('aiKey').value.trim();
@@ -380,7 +422,7 @@ async function init(callback){
  el('cancelDelete').onclick=closeDelete;el('confirmDelete').onclick=remove;
  el('deleteDialog').onclick=e=>{if(e.target===el('deleteDialog'))closeDelete()};
  el('aiCancel').onclick=closeAI;el('aiRun').onclick=runAI;
- el('aiTest').onclick=testConnection;el('aiModels').onclick=listModels;
+ el('aiTest').onclick=testConnection;el('aiModels').onclick=listModels;el('aiSave').onclick=saveConfig;
  el('aiDialog').onclick=e=>{if(e.target===el('aiDialog'))closeAI()};
  el('aiKey').onkeydown=e=>{if(e.key==='Enter')runAI()};
  el('aiForget').onclick=()=>{
@@ -418,6 +460,7 @@ async function init(callback){
  }catch{activate(null);el('libraryStatus').textContent='当前环境无法保存导入的文档。'}
 }
 function dismiss(){
+ if(typeof window.TizhanDismiss==='function'&&window.TizhanDismiss())return true;
  if(!el('aiDialog').hidden){closeAI();return true}
  if(!el('exportDialog').hidden){closeExport();return true}
  if(!el('deleteDialog').hidden){closeDelete();return true}
@@ -425,5 +468,5 @@ function dismiss(){
  if(document.body.classList.contains('banks-open')){el('dismissBanks').click();return true}
  return false;
 }
-return {init,materials,openImport,dismiss};
+return {init,materials,openImport,dismiss,openAI,explain,hasConfig};
 })();
