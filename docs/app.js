@@ -23,7 +23,7 @@ const app=document.querySelector('#app');
 let key,state;
 let tab,pool=[],index=0,page=0,summary=false;
 let mode='normal',recite={},query='',searchHits=[];
-let exam=null,examError='',examTimer=null;
+let exam=null,examError='',examTimer=null,wrongFresh={};
 const groupSize=20;
 function activateBank(bank){
  clearExamTimer();
@@ -36,7 +36,7 @@ function activateBank(bank){
  if(key){try{Object.assign(state,JSON.parse(localStorage.getItem(key))||{})}catch{}}
  if(!Array.isArray(state.log))state.log=[];
  if(!state.streak||typeof state.streak!=='object')state.streak={};
- mode='normal';recite={};query='';searchHits=[];
+ mode='normal';recite={};query='';searchHits=[];wrongFresh={};
  enter();
 }
 function persist(){if(!key)return;try{localStorage.setItem(key,JSON.stringify(state))}catch{document.querySelector('#saveInfo').textContent='浏览器存储不可用，本次进度仅在当前页面保留'}}
@@ -47,7 +47,7 @@ function enter(){
 function buildPool(){
  const filter=state.filter[tab]||'all';
  pool=tab==='notes'||tab==='exam'?[]:questions.filter(q=>(filter==='all'||q.type===filter)&&(tab!=='wrong'||state.results[q.id]?.ok===false)&&(tab!=='saved'||state.saved[q.id]));
- if(tab==='wrong')pool.forEach(q=>{state.retrying[q.id]=true});
+ if(tab==='wrong')pool.forEach(q=>{wrongFresh[q.id]=true});
  index=Math.max(0,pool.findIndex(q=>q.id===state.place[tab]));page=Math.floor(index/groupSize);
 }
 function move(i){
@@ -107,7 +107,12 @@ function record(q,ok){
  state.log.push({t:Date.now(),ok,topic:q.topic||''});
  if(state.log.length>800)state.log.splice(0,state.log.length-800);
 }
+function currentResult(q){
+ if(tab==='wrong')return wrongFresh[q.id]?null:state.results[q.id];
+ return state.retrying[q.id]?null:state.results[q.id];
+}
 function gradeAnswer(q,ok){
+ if(tab==='wrong')delete wrongFresh[q.id];
  record(q,ok);
  if(tab==='wrong'){
   if(ok===true){
@@ -165,7 +170,7 @@ function card(){
  if(summary){
  const graded=pool.filter(q=>typeof state.results[q.id]?.ok==='boolean'),unfinished=pool.findIndex(q=>typeof state.results[q.id]?.ok!=='boolean');
  return `<section class="card">${heading}<div class="summary-result"><h3>练习小结</h3><p>本组共 ${pool.length} 题，已完成 ${graded.length} 题，答对 ${graded.filter(q=>state.results[q.id].ok).length} 题。</p><div class="control"><button class="btn primary" data-jump="${unfinished<0?0:unfinished}">${unfinished<0?'回顾本组':'继续未完成题目'}</button></div></div></section>`}
- const q=pool[index],r=state.retrying[q.id]?null:state.results[q.id],d=state.drafts[q.id],saved=Boolean(state.saved[q.id]);
+ const q=pool[index],r=currentResult(q),d=state.drafts[q.id],saved=Boolean(state.saved[q.id]);
  const mastered=tab==='wrong'&&r?.ok===true;
  const streak=tab==='wrong'?`<span class="chip">连续 ${state.streak[q.id]||0}/2</span>`:'';
  return `<section class="card">${heading}<div class="inside"><div class="qmeta"><div class="chips"><span class="qid">第 <b>${String(index+1).padStart(2,'0')}</b> 题</span><span class="chip">${kinds[q.type]}</span>${streak}${q.level?`<span class="chip level ${{中:'mid',难:'hard'}[q.level]||''}">${{易:'基础',中:'中等',难:'较难'}[q.level]}</span>`:''}</div><button class="bookmark ${saved?'on':''}" data-action="save" aria-pressed="${saved}">${icon('star')}${saved?'已收藏':'收藏'}</button></div><h3 class="question">${esc(q.title)}</h3>${q.requirements?`<p class="requirements">${esc(q.requirements.join('\n'))}</p>`:''}${answerArea(q,r,d)}${feedback(q,r)}</div><div class="actions"><div class="control"><button class="btn" data-jump="${index-1}" ${!index?'disabled':''}>上一题</button><button class="btn" data-action="next">${index===pool.length-1?'查看小结':'下一题'}</button></div>${mastered?'<span class="notice">已移出错题本</span>':r?`<button class="btn" data-action="retry">${tab==='wrong'?'再练一次':'重新作答'}</button>`:(q.type==='choice'||q.type==='judge')?'<span class="notice">点选即提交</span>':`<button id="submit" class="btn primary" data-action="submit" ${ready(q,d)?'':'disabled'}>${['short','code'].includes(q.type)?(q.answer?'查看参考答案':'完成并自评'):'提交答案'}</button>`}</div></section>`;
@@ -179,7 +184,7 @@ function reciteCard(){
   const options=q.options?`<div class="options">${q.options.map((s,i)=>{const l='ABCDEFGH'[i],good=!q.selfReview&&q.answer.includes(l);return `<div class="option ${good?'good':''}"><span class="letter">${l}</span><span>${esc(s)}</span>${good?icon('check'):''}</div>`}).join('')}</div>`:'';
   return `<section class="card">${heading}<div class="inside">${meta}<h3 class="question">${esc(q.title)}</h3>${q.requirements?`<p class="requirements">${esc(q.requirements.join('\n'))}</p>`:''}${options}<section class="response memorize" aria-label="参考答案"><strong>参考答案</strong>${q.type==='code'?`<pre>${esc(q.answer)}</pre>`:`<p>${esc(answerLabel(q))}</p>`}${q.explanation?`<p>${esc(q.explanation)}</p>`:''}${q.rubric?`<p>评分要点：${esc(q.rubric)}</p>`:''}${q.pitfall?`<p>易错点：${esc(q.pitfall)}</p>`:''}${q.topic?`<p class="subtle">知识点 · ${esc(q.topic)}</p>`:''}</section></div><div class="actions"><div class="control"><button class="btn" data-jump="${index-1}" ${!index?'disabled':''}>上一题</button><button class="btn" data-action="next">${index===pool.length-1?'查看小结':'下一题'}</button></div><button class="btn primary" data-action="flip">翻转自测</button></div></section>`;
  }
- const r=state.retrying[q.id]?null:state.results[q.id],d=state.drafts[q.id];
+ const r=currentResult(q),d=state.drafts[q.id];
  return `<section class="card">${heading}<div class="inside">${meta}<h3 class="question">${esc(q.title)}</h3>${q.requirements?`<p class="requirements">${esc(q.requirements.join('\n'))}</p>`:''}${answerArea(q,r,d)}${feedback(q,r)}</div><div class="actions"><div class="control"><button class="btn" data-jump="${index-1}" ${!index?'disabled':''}>上一题</button><button class="btn" data-action="next">${index===pool.length-1?'查看小结':'下一题'}</button></div>${r?'<button class="btn" data-action="flipback">再看答案</button><button class="btn" data-action="retry">重新自测</button>':(q.type==='choice'||q.type==='judge')?'<span class="notice">点选即提交</span>':`<button id="submit" class="btn primary" data-action="submit" ${ready(q,d)?'':'disabled'}>${['short','code'].includes(q.type)?(q.answer?'查看参考答案':'完成并自评'):'提交答案'}</button>`}</div></section>`;
 }
 function searchMatches(){
@@ -494,7 +499,7 @@ app.addEventListener('click',e=>{
    state.drafts[q.id]=[...selected].sort().join('');persist();render();return;
   }
   state.drafts[q.id]=data.choice;
-  if(q.selfReview){state.results[q.id]={ok:null};delete state.retrying[q.id];persist();render();return}
+  if(q.selfReview){state.results[q.id]={ok:null};delete state.retrying[q.id];delete wrongFresh[q.id];persist();render();return}
   gradeAnswer(q,data.choice===q.answer);
   delete state.retrying[q.id];
   if(tab==='wrong'||(tab==='practice'&&mode==='recite')){persist();render();return}
@@ -505,7 +510,7 @@ app.addEventListener('click',e=>{
  switch(data.action){
  case 'save':state.saved[q.id]=!state.saved[q.id];if(tab==='saved'&&!state.saved[q.id]){pool.splice(index,1);index=Math.max(0,Math.min(index,pool.length-1));page=Math.floor(index/groupSize)}break;
  case 'next':nextQuestion();return;
- case 'retry':state.retrying[q.id]=true;delete state.drafts[q.id];break;
+ case 'retry':if(tab==='wrong')wrongFresh[q.id]=true;else state.retrying[q.id]=true;delete state.drafts[q.id];break;
  case 'flip':recite[q.id]='test';delete state.drafts[q.id];delete state.retrying[q.id];break;
  case 'flipback':recite[q.id]='memorize';break;
  case 'submit':{
